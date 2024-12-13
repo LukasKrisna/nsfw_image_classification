@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import numpy as np
 import tensorflow as tf
 from PIL import Image
@@ -32,14 +32,22 @@ def predict():
         predictions = model.predict(prepared_image)
         predicted_class = classes[np.argmax(predictions)]
         confidence = np.max(predictions)
-        
-        # Determine label category
-        if predicted_class in ['drawings', 'neutral']:
-            label_category = 'Safe'
-        else:
-            label_category = 'NSFW'
 
-        return jsonify({'class': predicted_class, 'confidence': float(confidence), 'category': label_category})
+        # Determine label category
+        label_category = 'Safe' if predicted_class in ['drawings', 'neutral'] else 'NSFW'
+
+        # Logic to handle NSFW content
+        if label_category == 'NSFW':
+            return jsonify({'error': 'Content blocked due to NSFW image'}), 403
+        
+        # If safe, return the original image
+        file.seek(0)  # Reset file pointer to the beginning
+        return send_file(
+            io.BytesIO(file.read()),
+            mimetype='image/jpeg',
+            as_attachment=True,
+            attachment_filename=file.filename
+        )
     else:
         return jsonify({'error': 'Invalid file'}), 400
 
